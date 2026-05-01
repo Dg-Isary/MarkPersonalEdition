@@ -1,10 +1,3 @@
-### 💡 提示：
-你需要把 `git clone https://github.com/YourUsername/Smart-Grading-System.git` 里的 `YourUsername` 换成你真正的没问题！一份好的 `README.md` 是开源项目的门面。
-
-基于我们这两天构建的“智能阅卷系统”（从 V8 演进到 V11），我为你写了一份极其专业、吸引人、并且详细说明了你的**核心技术亮点（零干扰、本地化）**的自述文件。
-
-你可以直接复制以下内容，保存为 `README.md`，然后提交到你的 GitHub 仓库。
-
 ***
 ```markdown
 # 📝 Smart Grading System - 智能阅卷系统 V11 (本地增强版)
@@ -56,8 +49,10 @@
 ```bash
 git clone https://github.com/Dg-Isary/MarkPersonalEdition.git
 cd MarkPersonalEdition
-## 1. 安装 OpenCV 等常规库
+#### 1. 安装 OpenCV 等常规库
 .\python310\python.exe -m pip install opencv-python flask waitress numpy
 
-## 2. 安装指定的黄金组合版本
+#### 2. 安装指定的黄金组合版本
 .\python310\python.exe -m pip install paddlepaddle==2.6.2 paddleocr==2.8.1
+#技术支持
+##Gemini Pro
