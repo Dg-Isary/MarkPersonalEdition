@@ -52,6 +52,7 @@ cd MarkPersonalEdition
 
 # 2. 安装指定的黄金组合版本
 .\python310\python.exe -m pip install paddlepaddle==2.6.2 paddleocr==2.8.1
+```
 
 ---
 
