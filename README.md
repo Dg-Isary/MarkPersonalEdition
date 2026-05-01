@@ -47,10 +47,13 @@
 ```bash
 git clone https://github.com/Dg-Isary/MarkPersonalEdition.git
 cd MarkPersonalEdition
-#### 1. 安装 OpenCV 等常规库
+# 1. 安装 OpenCV 等常规库
 .\python310\python.exe -m pip install opencv-python flask waitress numpy
 
-#### 2. 安装指定的黄金组合版本
+# 2. 安装指定的黄金组合版本
 .\python310\python.exe -m pip install paddlepaddle==2.6.2 paddleocr==2.8.1
-#技术支持
-##Gemini Pro
+
+---
+
+## 技术支持
+### Gemini Pro
