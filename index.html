@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>智能答题卡阅卷系统 V6.5 (巨屏报分 & 导出强化)</title>
+    <title>智能答题卡阅卷系统 V7.2</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { --primary: #2c3e50; --accent: #e67e22; --success: #27ae60; --danger: #c0392b; --bg: #ecf0f1; --border: #bdc3c7; }
@@ -32,8 +32,13 @@
         .preview-pane { flex: 1.5; background: #f1f2f6; border-radius: 8px; display: flex; flex-direction: column; border: 1px solid #ddd; position: relative; overflow: hidden; }
         .student-info-box { background: white; border-bottom: 2px solid var(--primary); padding: 15px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
         
-        /* 恢复你的专属大号尺寸样式 */
         .info-crop { max-height: 180px; resize: both; overflow: auto; border: 1px dashed #ccc; padding: 2px; background: #fff; }
+        
+        .name-input-wrapper { display: flex; flex-direction: column; justify-content: center; margin-left: 15px; background: #fdf2e9; padding: 10px; border-radius: 6px; border: 1px solid #f39c12; }
+        .name-input-wrapper label { font-size: 12px; color: var(--accent); font-weight: bold; margin-bottom: 5px; }
+        .name-input-wrapper input { font-size: 24px; font-weight: bold; padding: 5px 10px; border: 2px solid var(--primary); border-radius: 4px; width: 140px; text-align: center; color: var(--primary); transition: 0.2s; }
+        .name-input-wrapper input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 5px rgba(230, 126, 34, 0.5); }
+        
         .big-score { font-size: 140px; font-weight: bold; color: #00b0f0; line-height: 1; margin: 0 20px; }
         
         #previewContainer { flex: 1; overflow: hidden; position: relative; cursor: grab; background: #e0e0e0; }
@@ -41,7 +46,8 @@
         #detailPreviewImg { position: absolute; top: 0; left: 0; width: 100%; height: auto; transform-origin: 0 0; pointer-events: none; }
 
         .result-list-container { flex: 1; overflow-y: auto; padding-right: 5px; }
-        .result-card { background: #fff; border: 1px solid #ddd; padding: 8px; margin-bottom: 6px; border-left: 5px solid var(--primary); border-radius: 4px; cursor: pointer; }
+        .result-card { background: #fff; border: 1px solid #ddd; padding: 8px; margin-bottom: 6px; border-left: 5px solid var(--primary); border-radius: 4px; cursor: pointer; transition: 0.2s; }
+        .result-card:hover { background: #f9f9f9; }
         .result-card.active { border-left: 6px solid var(--accent); background: #fdf2e9; }
         .result-card.flagged { border-left-color: var(--danger); }
         
@@ -67,7 +73,7 @@
 <body>
 
 <nav class="top-navbar">
-    <div class="brand"><i class="fas fa-microchip"></i> 智能阅卷系统 V6.5</div>
+    <div class="brand"><i class="fas fa-microchip"></i> 智能阅卷系统 V7.2</div>
     <div class="nav-menu">
         <a href="#build" class="nav-link" id="nav-build"><i class="fas fa-drafting-compass"></i> 模板开发中心</a>
         <a href="#batch" class="nav-link" id="nav-batch"><i class="fas fa-tasks"></i> 极速批改台</a>
@@ -82,7 +88,7 @@
                 <div class="toolbar">
                     <input type="file" id="uploadBlank" accept="image/*" style="display:none;">
                     <button class="btn" onclick="document.getElementById('uploadBlank').click()"><i class="fas fa-image"></i> 导入空白卡</button>
-                    <button class="btn warning" id="undoBtn" disabled onclick="undoAction()"><i class="fas fa-undo"></i> 撤回框选</button>
+                    <button class="btn warning" id="undoBtn" disabled onclick="undoAction()"><i class="fas fa-undo"></i> 撤回一步</button>
                     <button class="btn success" id="extractBubblesBtn" disabled onclick="extractBubbles()"><i class="fas fa-magic"></i> 解析所有框</button>
                     <span style="color: #ccc;">|</span>
                     <button class="btn outline" onclick="toggleAdv()"><i class="fas fa-sliders-h"></i> 识别调参</button>
@@ -123,10 +129,14 @@
     <div id="view-batch" class="view-section">
         <div style="display: flex; gap: 15px; height: 100%;">
             <div class="preview-pane">
+                
                 <div class="student-info-box" id="studentInfoBox" style="display:none;">
-                    <div style="display:flex; align-items:center; gap:10px;">
-                        <div style="font-size:12px; color:gray; writing-mode:vertical-lr;">手写区</div>
-                        <img id="infoCropImg" class="info-crop">
+                    <div style="display:flex; align-items:flex-start; flex: 1;">
+                        <img id="infoCropImg" class="info-crop" style="margin-right: 10px;">
+                        <div class="name-input-wrapper">
+                            <label><i class="fas fa-user-edit"></i> 识别姓名/学号 (可直接修改)</label>
+                            <input type="text" id="studentNameInput" onchange="updateStudentName()" placeholder="未识别">
+                        </div>
                     </div>
                     <div class="big-score" id="previewScore">--</div>
                 </div>
@@ -193,7 +203,7 @@
 </div>
 
 <script>
-    const API = 'http://127.0.0.1:5000/api';
+    const API = 'http://127.0.0.1:15000/api';
     
     function handleRoute() {
         let hash = window.location.hash || '#batch';
@@ -273,11 +283,21 @@
         if(canvasImg.src) ctx.drawImage(canvasImg, 0, 0);
         ctx.lineWidth = 2;
         rois.forEach(r => {
-            if(r.type === 'info') { ctx.strokeStyle = "#e67e22"; ctx.fillStyle = "rgba(230, 126, 34, 0.2)"; }
-            else { ctx.strokeStyle = "#3498db"; ctx.fillStyle = "rgba(52, 152, 219, 0.2)"; }
-            ctx.strokeRect(r.x, r.y, r.w, r.h); ctx.fillRect(r.x, r.y, r.w, r.h);
-            ctx.fillStyle = "#2c3e50"; ctx.font = "20px Arial"; 
-            ctx.fillText(r.type === 'info' ? "学生信息" : `Q${r.start_q}~`, r.x, r.y - 5);
+            if(r.type === 'info') { 
+                ctx.strokeStyle = "#e67e22"; 
+                ctx.fillStyle = "rgba(230, 126, 34, 0.2)"; 
+            } else { 
+                ctx.strokeStyle = "#3498db"; 
+                ctx.fillStyle = "rgba(52, 152, 219, 0.2)"; 
+            }
+            ctx.strokeRect(r.x, r.y, r.w, r.h); 
+            ctx.fillRect(r.x, r.y, r.w, r.h);
+            
+            ctx.fillStyle = "#2c3e50"; 
+            ctx.font = "bold 15px Arial"; 
+            // 加入直观的视觉提示
+            let labelText = r.type === 'info' ? "学生信息" : `Q${r.start_q}~`;
+            ctx.fillText(`${labelText} [双击删除]`, r.x, r.y - 6);
         });
         if (tempRect) { ctx.strokeStyle = "#9b59b6"; ctx.strokeRect(tempRect.x, tempRect.y, tempRect.w, tempRect.h); }
     }
@@ -305,6 +325,7 @@
         const endX = (e.clientX - rect.left) * (canvas.width / rect.width);
         const endY = (e.clientY - rect.top) * (canvas.height / rect.height);
         const w = Math.abs(endX - startX), h = Math.abs(endY - startY);
+        
         if (w > 20 && h > 20) {
             const result = await openBoxModal();
             if(result) {
@@ -316,7 +337,30 @@
         redrawCanvas();
     });
 
-    function updateUndo() { document.getElementById('undoBtn').disabled = rois.length === 0; }
+    // 核心：无弹窗瞬间删除指定的框
+    canvas.addEventListener('dblclick', e => {
+        if(!canvasImg.src) return;
+        const rect = canvas.getBoundingClientRect();
+        const clickX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const clickY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        
+        for(let i = rois.length - 1; i >= 0; i--) {
+            let r = rois[i];
+            if(clickX >= r.x && clickX <= r.x + r.w && clickY >= r.y && clickY <= r.y + r.h) {
+                rois.splice(i, 1);
+                redrawCanvas();
+                updateUndo();
+                return; // 删掉命中的第一个就结束
+            }
+        }
+    });
+
+    function updateUndo() { 
+        let hasRois = rois.length > 0;
+        document.getElementById('undoBtn').disabled = !hasRois; 
+        if (!hasRois) document.getElementById('extractBubblesBtn').disabled = true;
+    }
+    
     function undoAction() { rois.pop(); redrawCanvas(); updateUndo(); }
 
     function renderTable() {
@@ -424,7 +468,7 @@
                 }
                 renderTable();
                 redrawCanvas();
-                alert("配置已导入！\n如果画布空白，请点击“导入空白卡”，并在提示时选择“取消”以保留这些红蓝框线。");
+                alert("配置已导入！");
             } catch(e) { alert("JSON解析错误"); }
         };
         reader.readAsText(file);
@@ -555,11 +599,15 @@
             let cls = `result-card ${r.flagged ? 'flagged' : ''} ${idx === currentPreviewIndex ? 'active' : ''}`;
             if (r.status === 'success') {
                 let w = r.details.filter(d => !d.is_correct).map(d => `<span style="color:var(--danger)">Q${d.question}</span>`).join(' ');
+                
+                let nameStr = r.student_name ? `[${r.student_name}] ` : '';
+                
                 container.innerHTML += `
                     <div class="${cls}" id="card-${idx}" onclick="selectCard(${idx})">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
                             <span style="font-weight:bold; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">
-                                ${r.flagged ? '<i class="fas fa-flag" style="color:var(--danger)"></i> ' : ''}${r.filename}
+                                ${r.flagged ? '<i class="fas fa-flag" style="color:var(--danger)"></i> ' : ''}
+                                <span style="color:var(--accent)">${nameStr}</span>${r.filename}
                             </span> 
                             <span style="color:var(--danger);font-weight:bold">${r.score}</span>
                         </div>
@@ -586,6 +634,7 @@
         const infoImg = document.getElementById('infoCropImg');
         const scoreTxt = document.getElementById('previewScore');
         const flagBtn = document.getElementById('flagBtn');
+        const nameInput = document.getElementById('studentNameInput');
         
         if(r.status === 'success') {
             mainImg.src = r.image_base64; 
@@ -594,8 +643,13 @@
             applyTransform(); 
 
             scoreTxt.innerText = `${r.score}`;
-            if(r.info_base64) { infoImg.src = r.info_base64; infoBox.style.display = 'flex'; }
-            else { infoBox.style.display = 'none'; }
+            if(r.info_base64) { 
+                infoImg.src = r.info_base64; 
+                infoBox.style.display = 'flex'; 
+                nameInput.value = r.student_name || '未识别';
+            } else { 
+                infoBox.style.display = 'none'; 
+            }
             
             flagBtn.style.display = 'block';
             flagBtn.innerHTML = r.flagged ? '<i class="fas fa-flag-checkered"></i> 取消标记' : '<i class="fas fa-flag"></i> 标记撤回';
@@ -608,7 +662,26 @@
         if(card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
+    async function updateStudentName() {
+        if(currentPreviewIndex === -1) return;
+        const r = processedResults[currentPreviewIndex];
+        const newName = document.getElementById('studentNameInput').value.trim() || '未识别';
+        r.student_name = newName;
+        
+        renderResultList(); 
+        
+        try {
+            await fetch(`${API}/update_name`, {
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({filename: r.filename, name: newName}) 
+            });
+        } catch(e) { console.error("姓名保存失败"); }
+    }
+
     document.addEventListener('keydown', e => {
+        if(document.activeElement === document.getElementById('studentNameInput')) return;
+        
         if(document.getElementById('view-batch').classList.contains('active')) {
             if(e.key === 'ArrowRight' || e.key === 'ArrowDown') { selectCard(currentPreviewIndex + 1); e.preventDefault(); }
             if(e.key === 'ArrowLeft' || e.key === 'ArrowUp') { selectCard(currentPreviewIndex - 1); e.preventDefault(); }
@@ -628,24 +701,22 @@
         } catch(e) {}
     }
 
-    // 新增：CSV 导出功能，支持用 Excel 打开
     function exportScores() {
         if (processedResults.length === 0) {
             alert("目前没有可导出的成绩，请先导入试卷进行批改。");
             return;
         }
         
-        // 加入 BOM 字符 \uFEFF，防止 Excel 打开 CSV 时中文乱码
-        let csvContent = "\uFEFF试卷文件名称,总成绩,错题明细,状态标记\n";
+        let csvContent = "\uFEFF试卷文件名称,识别姓名/学号,总成绩,错题明细,状态标记\n";
         
         processedResults.forEach(r => {
             if (r.status === 'success') {
-                // 筛选出错题，并拼接成 Q1(B); Q3(D) 的格式
                 let wrongDetails = r.details.filter(d => !d.is_correct).map(d => `Q${d.question}(${d.selected})`).join('; ');
                 let status = r.flagged ? "已标记(需复查)" : "正常";
-                csvContent += `${r.filename},${r.score},${wrongDetails || '全对'},${status}\n`;
+                let sName = r.student_name || '未识别';
+                csvContent += `${r.filename},${sName},${r.score},${wrongDetails || '全对'},${status}\n`;
             } else {
-                csvContent += `${r.filename},0,解析失败,${r.message}\n`;
+                csvContent += `${r.filename},未能提取,0,解析失败,${r.message}\n`;
             }
         });
 
@@ -653,7 +724,6 @@
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        // 使用时间戳命名，方便归档
         link.setAttribute("download", `学生成绩汇总单_${new Date().getTime()}.csv`);
         document.body.appendChild(link);
         link.click();
