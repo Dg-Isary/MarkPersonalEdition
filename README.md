@@ -1,5 +1,3 @@
-***
-```markdown
 # 📝 Smart Grading System - 智能阅卷系统 V11 (本地增强版)
 
 ![License](https://img.shields.io/badge/License-MIT-blue.svg)
