@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能答题卡阅卷系统 V6.5 (巨屏报分 & 导出强化)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root { --primary: #2c3e50; --accent: #e67e22; --success: #27ae60; --danger: #c0392b; --bg: #ecf0f1; --border: #bdc3c7; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg); margin: 0; padding: 0; box-sizing: border-box; color: #333; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        
+        .top-navbar { display: flex; justify-content: space-between; align-items: center; background-color: var(--primary); color: white; height: 48px; flex-shrink: 0; box-shadow: 0 2px 6px rgba(0,0,0,0.15); padding: 0 20px; z-index: 100; }
+        .top-navbar .brand { font-size: 16px; font-weight: bold; letter-spacing: 1px; display: flex; align-items: center; gap: 8px; }
+        .nav-menu { display: flex; height: 100%; }
+        .nav-link { text-decoration: none; padding: 0 20px; color: rgba(255,255,255,0.7); font-size: 14px; display: flex; align-items: center; gap: 6px; transition: 0.2s; border-bottom: 3px solid transparent; }
+        .nav-link:hover { color: white; background: rgba(255,255,255,0.1); }
+        .nav-link.active { color: white; border-bottom-color: var(--accent); background: rgba(255,255,255,0.05); font-weight: bold; }
+
+        .main-content { padding: 15px; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .view-section { flex: 1; display: none; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; }
+        .view-section.active { display: flex; flex-direction: column; }
+
+        .toolbar { margin-bottom: 10px; padding: 8px; background: #f8f9fa; border-radius: 6px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; flex-shrink: 0; }
+        .btn { background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; font-size: 13px; }
+        .btn:hover { background: #34495e; }
+        .btn.success { background: var(--success); }
+        .btn.warning { background: var(--accent); }
+        .btn.danger { background: var(--danger); }
+        .btn.outline { background: transparent; color: var(--primary); border: 1px solid var(--primary); }
+        .btn:disabled { background: #95a5a6; cursor: not-allowed; opacity: 0.7; }
+
+        .preview-pane { flex: 1.5; background: #f1f2f6; border-radius: 8px; display: flex; flex-direction: column; border: 1px solid #ddd; position: relative; overflow: hidden; }
+        .student-info-box { background: white; border-bottom: 2px solid var(--primary); padding: 15px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        
+        /* 恢复你的专属大号尺寸样式 */
+        .info-crop { max-height: 180px; resize: both; overflow: auto; border: 1px dashed #ccc; padding: 2px; background: #fff; }
+        .big-score { font-size: 140px; font-weight: bold; color: #00b0f0; line-height: 1; margin: 0 20px; }
+        
+        #previewContainer { flex: 1; overflow: hidden; position: relative; cursor: grab; background: #e0e0e0; }
+        #previewContainer:active { cursor: grabbing; }
+        #detailPreviewImg { position: absolute; top: 0; left: 0; width: 100%; height: auto; transform-origin: 0 0; pointer-events: none; }
+
+        .result-list-container { flex: 1; overflow-y: auto; padding-right: 5px; }
+        .result-card { background: #fff; border: 1px solid #ddd; padding: 8px; margin-bottom: 6px; border-left: 5px solid var(--primary); border-radius: 4px; cursor: pointer; }
+        .result-card.active { border-left: 6px solid var(--accent); background: #fdf2e9; }
+        .result-card.flagged { border-left-color: var(--danger); }
+        
+        .progress-wrapper { width: 100%; background: #ddd; border-radius: 4px; overflow: hidden; display: none; margin-bottom: 8px; flex-shrink: 0; }
+        .progress-fill { height: 6px; background: var(--success); width: 0%; transition: width 0.3s; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { border: 1px solid #ddd; padding: 4px; text-align: center; }
+        th { background-color: #f8f9fa; position: sticky; top: 0; z-index: 10; }
+        select, input { padding: 4px; border: 1px solid var(--border); border-radius: 4px; }
+        .tiny-btn { background: none; border: none; color: var(--danger); cursor: pointer; }
+
+        .adv-panel { font-size: 12px; background: #fafafa; padding: 10px; border: 1px solid #eee; margin-bottom: 10px; display: none; flex-shrink: 0; }
+        .adv-panel label { display: inline-block; width: 90px; }
+
+        .modal-overlay { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-box { background: white; padding: 20px; border-radius: 8px; width: 380px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .modal-title { font-weight: bold; margin-bottom: 15px; font-size: 16px; }
+        .modal-inputs { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; }
+    </style>
+</head>
+<body>
+
+<nav class="top-navbar">
+    <div class="brand"><i class="fas fa-microchip"></i> 智能阅卷系统 V6.5</div>
+    <div class="nav-menu">
+        <a href="#build" class="nav-link" id="nav-build"><i class="fas fa-drafting-compass"></i> 模板开发中心</a>
+        <a href="#batch" class="nav-link" id="nav-batch"><i class="fas fa-tasks"></i> 极速批改台</a>
+    </div>
+</nav>
+
+<div class="main-content">
+    
+    <div id="view-build" class="view-section">
+        <div style="display: flex; gap: 15px; height: 100%;">
+            <div style="flex: 2; display: flex; flex-direction: column; overflow: hidden;">
+                <div class="toolbar">
+                    <input type="file" id="uploadBlank" accept="image/*" style="display:none;">
+                    <button class="btn" onclick="document.getElementById('uploadBlank').click()"><i class="fas fa-image"></i> 导入空白卡</button>
+                    <button class="btn warning" id="undoBtn" disabled onclick="undoAction()"><i class="fas fa-undo"></i> 撤回框选</button>
+                    <button class="btn success" id="extractBubblesBtn" disabled onclick="extractBubbles()"><i class="fas fa-magic"></i> 解析所有框</button>
+                    <span style="color: #ccc;">|</span>
+                    <button class="btn outline" onclick="toggleAdv()"><i class="fas fa-sliders-h"></i> 识别调参</button>
+                    
+                    <input type="file" id="importTplInput" accept=".json" style="display:none;" onchange="importTemplateFile(event)">
+                    <button class="btn outline" onclick="document.getElementById('importTplInput').click()" title="导入现成配置"><i class="fas fa-folder-open"></i></button>
+                    <button class="btn outline" onclick="exportTemplate()" title="导出配置分享"><i class="fas fa-download"></i></button>
+                </div>
+                
+                <div class="adv-panel" id="advPanel">
+                    <p style="margin:0 0 5px 0;color:gray;"><i class="fas fa-info-circle"></i> 深色干扰块乱识别？调高二值化阈值(如150)。</p>
+                    <div><label>二值化阈值:</label><input type="number" id="cfgThresh" value="0" placeholder="0=全自动"></div>
+                    <div style="margin-top:5px;"><label>最小气泡宽:</label><input type="number" id="cfgMinW" value="10"> px</div>
+                    <div style="margin-top:5px;"><label>最大气泡宽:</label><input type="number" id="cfgMaxW" value="80"> px</div>
+                </div>
+
+                <div style="flex: 1; overflow: auto; border: 2px solid #ddd; background: #eee; position: relative; cursor: crosshair;">
+                    <canvas id="canvasMain" style="display: block; max-width: 100%; height: auto;"></canvas>
+                </div>
+            </div>
+
+            <div style="flex: 1; border-left: 1px solid #eee; padding-left: 15px; display: flex; flex-direction: column; overflow: hidden;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-weight: bold;"><i class="fas fa-list-ol"></i> 题目配分表</span>
+                    <button class="btn outline" onclick="addCustomRow()"><i class="fas fa-plus"></i> 加一题</button>
+                </div>
+                <div style="flex: 1; overflow-y: auto;">
+                    <table id="configTable">
+                        <thead><tr><th>题号</th><th>选项</th><th>答案</th><th>分值</th><th>删</th></tr></thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                <button class="btn success" id="saveTemplateBtn" style="width: 100%; margin-top: 10px;" onclick="saveTemplate()"><i class="fas fa-save"></i> 保存并启用模板</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="view-batch" class="view-section">
+        <div style="display: flex; gap: 15px; height: 100%;">
+            <div class="preview-pane">
+                <div class="student-info-box" id="studentInfoBox" style="display:none;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <div style="font-size:12px; color:gray; writing-mode:vertical-lr;">手写区</div>
+                        <img id="infoCropImg" class="info-crop">
+                    </div>
+                    <div class="big-score" id="previewScore">--</div>
+                </div>
+                
+                <div id="previewContainer">
+                    <img id="detailPreviewImg" style="display:none;">
+                    <div id="previewTip" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:#777; font-size:14px; pointer-events:none;">
+                        <i class="fas fa-keyboard"></i> 键盘左右键切换卷子，滚轮缩放，鼠标拖拽
+                    </div>
+                </div>
+                
+                <button id="flagBtn" class="btn warning" style="position:absolute; bottom:20px; right:20px; display:none; box-shadow:0 4px 10px rgba(0,0,0,0.2);" onclick="toggleFlag()">
+                    <i class="fas fa-flag"></i> 标记此卷以便复查
+                </button>
+            </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column; overflow: hidden;">
+                <div class="toolbar">
+                    <input type="file" id="batchUpload" accept="image/*" multiple style="display:none;">
+                    <button class="btn" onclick="document.getElementById('batchUpload').click()"><i class="fas fa-folder-open"></i> 导入试卷</button>
+                    <button class="btn success" id="startBatchBtn" disabled onclick="startBatch()"><i class="fas fa-play"></i> 开始批改</button>
+                    <span style="color: #ccc;">|</span>
+                    <button class="btn outline" onclick="exportScores()"><i class="fas fa-file-excel"></i> 导出成绩</button>
+                </div>
+                
+                <div class="progress-wrapper" id="progWrapper"><div class="progress-fill" id="progFill"></div></div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-shrink: 0;">
+                    <span id="batchStatus" style="font-weight:bold; color:var(--primary); font-size:13px;">就绪</span>
+                    <select id="filterSelect" onchange="renderResultList()" style="font-size:12px; padding:2px;">
+                        <option value="all">显示全部</option>
+                        <option value="flagged">仅看被标记(撤回)的</option>
+                    </select>
+                </div>
+                
+                <div class="result-list-container" id="batchResults"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="customModal">
+    <div class="modal-box">
+        <div class="modal-title" id="modalTitle">框选属性设置</div>
+        <div class="modal-inputs" id="modalBody">
+            <select id="mdlType" style="width:100%; padding:8px;" onchange="document.getElementById('mdlExtra').style.display = this.value==='info'?'none':'block'">
+                <option value="ans">这是选择题/判断题作答区</option>
+                <option value="info">这是学生个人信息区(如学号/姓名)</option>
+            </select>
+            <div id="mdlExtra">
+                <input type="number" id="mdlStart" placeholder="起始题号 (例: 1)" style="width:100%; padding:8px; margin-top:10px;">
+                <input type="number" id="mdlCount" placeholder="此框内共几题? (例: 5)" style="width:100%; padding:8px; margin-top:10px;">
+                <select id="mdlDirection" style="width:100%; padding:8px; margin-top:10px; border:1px solid #bdc3c7; border-radius:4px;">
+                    <option value="vertical">常规排版 (题目从上到下，选项在一行)</option>
+                    <option value="horizontal">横排模式 (题目从左到右，选项在一列)</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn outline" onclick="closeModal(false)">取消</button>
+            <button class="btn success" onclick="closeModal(true)">确定</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const API = 'http://127.0.0.1:5000/api';
+    
+    function handleRoute() {
+        let hash = window.location.hash || '#batch';
+        document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.nav-link').forEach(el => el.classList.remove('active'));
+        if (hash === '#build') {
+            document.getElementById('view-build').classList.add('active');
+            document.getElementById('nav-build').classList.add('active');
+            fetchTemplateData(); 
+        } else {
+            document.getElementById('view-batch').classList.add('active');
+            document.getElementById('nav-batch').classList.add('active');
+            fetchTemplateData();
+        }
+    }
+    window.addEventListener('hashchange', handleRoute);
+    window.addEventListener('DOMContentLoaded', handleRoute);
+
+    function toggleAdv() {
+        const p = document.getElementById('advPanel');
+        p.style.display = p.style.display === 'block' ? 'none' : 'block';
+    }
+
+    let modalResolver = null;
+    function openBoxModal() {
+        document.getElementById('customModal').style.display = 'flex';
+        document.getElementById('mdlStart').value = '';
+        document.getElementById('mdlCount').value = '';
+        document.getElementById('mdlDirection').value = 'vertical'; 
+        return new Promise(resolve => modalResolver = resolve);
+    }
+    function closeModal(isOk) {
+        document.getElementById('customModal').style.display = 'none';
+        if(!isOk) { modalResolver(null); return; }
+        let type = document.getElementById('mdlType').value;
+        if(type === 'info') modalResolver({type: 'info'});
+        else {
+            let s = parseInt(document.getElementById('mdlStart').value);
+            let c = parseInt(document.getElementById('mdlCount').value);
+            let d = document.getElementById('mdlDirection').value;
+            if(s && c) modalResolver({type: 'ans', start_q: s, q_count: c, direction: d});
+            else { alert("请输入完整题号"); modalResolver(null); }
+        }
+    }
+
+    let canvasImg = new Image();
+    let rois = []; 
+    let isDrawing = false, startX = 0, startY = 0;
+    let templateData = { student_info_roi: null, questions: [], rois: [] };
+    const canvas = document.getElementById('canvasMain');
+    const ctx = canvas.getContext('2d');
+
+    document.getElementById('uploadBlank').addEventListener('change', async e => {
+        if (!e.target.files[0]) return;
+        const formData = new FormData(); formData.append('file', e.target.files[0]);
+        try {
+            const res = await fetch(`${API}/init_template`, { method: 'POST', body: formData });
+            const data = await res.json();
+            if (data.status === 'success') {
+                if (templateData.questions && templateData.questions.length > 0) {
+                    if (confirm("已加载新底图。是否需要清空原有的框选和题目数据？\n(点击“确定”清空重新制作，点击“取消”保留原有框线)")) {
+                        rois = []; updateUndo(); templateData.questions = []; renderTable();
+                    }
+                } else {
+                    rois = []; updateUndo(); templateData.questions = []; renderTable();
+                }
+                
+                canvasImg.onload = () => { canvas.width = data.width; canvas.height = data.height; redrawCanvas(); };
+                canvasImg.src = data.image_base64;
+            }
+        } catch(err) {}
+        e.target.value = ''; 
+    });
+
+    function redrawCanvas(tempRect = null) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if(canvasImg.src) ctx.drawImage(canvasImg, 0, 0);
+        ctx.lineWidth = 2;
+        rois.forEach(r => {
+            if(r.type === 'info') { ctx.strokeStyle = "#e67e22"; ctx.fillStyle = "rgba(230, 126, 34, 0.2)"; }
+            else { ctx.strokeStyle = "#3498db"; ctx.fillStyle = "rgba(52, 152, 219, 0.2)"; }
+            ctx.strokeRect(r.x, r.y, r.w, r.h); ctx.fillRect(r.x, r.y, r.w, r.h);
+            ctx.fillStyle = "#2c3e50"; ctx.font = "20px Arial"; 
+            ctx.fillText(r.type === 'info' ? "学生信息" : `Q${r.start_q}~`, r.x, r.y - 5);
+        });
+        if (tempRect) { ctx.strokeStyle = "#9b59b6"; ctx.strokeRect(tempRect.x, tempRect.y, tempRect.w, tempRect.h); }
+    }
+
+    canvas.addEventListener('mousedown', e => {
+        if(!canvasImg.src) return;
+        const rect = canvas.getBoundingClientRect();
+        isDrawing = true; 
+        startX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        startY = (e.clientY - rect.top) * (canvas.height / rect.height);
+    });
+
+    canvas.addEventListener('mousemove', e => {
+        if (!isDrawing) return;
+        const rect = canvas.getBoundingClientRect();
+        const curX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const curY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        redrawCanvas({x: startX, y: startY, w: curX - startX, h: curY - startY});
+    });
+
+    canvas.addEventListener('mouseup', async e => {
+        if (!isDrawing) return;
+        isDrawing = false;
+        const rect = canvas.getBoundingClientRect();
+        const endX = (e.clientX - rect.left) * (canvas.width / rect.width);
+        const endY = (e.clientY - rect.top) * (canvas.height / rect.height);
+        const w = Math.abs(endX - startX), h = Math.abs(endY - startY);
+        if (w > 20 && h > 20) {
+            const result = await openBoxModal();
+            if(result) {
+                rois.push({ x: Math.min(startX, endX), y: Math.min(startY, endY), w: w, h: h, ...result });
+                document.getElementById('extractBubblesBtn').disabled = false;
+                updateUndo();
+            }
+        }
+        redrawCanvas();
+    });
+
+    function updateUndo() { document.getElementById('undoBtn').disabled = rois.length === 0; }
+    function undoAction() { rois.pop(); redrawCanvas(); updateUndo(); }
+
+    function renderTable() {
+        const tbody = document.querySelector('#configTable tbody');
+        tbody.innerHTML = '';
+        if(!templateData.questions) return;
+        templateData.questions.forEach((q, idx) => {
+            const isTF = q.options_count === 2;
+            let labels = q.labels || (isTF ? ['T', 'F'] : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']);
+            let opts = ''; 
+            for(let i=0; i<q.options_count; i++) opts += `<option value="${i}" ${q.correct_index==i?'selected':''}>${labels[i]||i}</option>`;
+            tbody.innerHTML += `
+                <tr data-idx="${idx}">
+                    <td><input type="number" class="q-num" value="${q.question_num}" style="width:40px;" onchange="syncTable()"></td>
+                    <td>
+                        <select class="q-type" onchange="changeLabelType(${idx}, this.value)">
+                            <option value="ABC" ${!isTF?'selected':''}>A-Z</option>
+                            <option value="TF" ${isTF?'selected':''}>T/F</option>
+                        </select>
+                    </td>
+                    <td><select class="q-ans" onchange="syncTable()">${opts}</select></td>
+                    <td><input type="number" class="q-weight" value="${q.weight || 2}" style="width:40px;" onchange="syncTable()"></td>
+                    <td><button class="tiny-btn" onclick="delRow(${idx})"><i class="fas fa-trash"></i></button></td>
+                </tr>
+            `;
+        });
+    }
+
+    function syncTable() {
+        document.querySelectorAll('#configTable tbody tr').forEach(tr => {
+            const idx = tr.getAttribute('data-idx');
+            templateData.questions[idx].question_num = parseInt(tr.querySelector('.q-num').value);
+            templateData.questions[idx].correct_index = parseInt(tr.querySelector('.q-ans').value);
+            templateData.questions[idx].weight = parseInt(tr.querySelector('.q-weight').value);
+        });
+    }
+
+    window.changeLabelType = function(idx, type) {
+        templateData.questions[idx].labels = type === 'TF' ? ['T', 'F', 'NG', 'N/A'] : ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
+        renderTable();
+    }
+
+    function addCustomRow() {
+        let lastQ = templateData.questions.length > 0 ? templateData.questions[templateData.questions.length-1].question_num : 0;
+        templateData.questions.push({
+            question_num: lastQ + 1, options_count: 4, correct_index: 0, weight: 2, labels: ['A','B','C','D'], bubbles: [] 
+        });
+        renderTable();
+    }
+
+    function delRow(idx) { templateData.questions.splice(idx, 1); renderTable(); }
+
+    async function extractBubbles() {
+        const cfg = { thresh: document.getElementById('cfgThresh').value, min_w: document.getElementById('cfgMinW').value, max_w: document.getElementById('cfgMaxW').value };
+        try {
+            const res = await fetch(`${API}/extract_roi`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({rois:rois, config:cfg}) });
+            const data = await res.json();
+            if (data.status === 'success') {
+                templateData.student_info_roi = data.student_info_roi;
+                data.structure.forEach(newQ => {
+                    let exist = templateData.questions.find(q => q.question_num === newQ.question_num);
+                    if(exist) { exist.bubbles = newQ.bubbles; exist.options_count = newQ.options_count; }
+                    else {
+                        newQ.weight = 2; newQ.correct_index = 0;
+                        newQ.labels = newQ.options_count === 2 ? ['T','F'] : ['A','B','C','D','E','F'];
+                        templateData.questions.push(newQ);
+                    }
+                });
+                templateData.questions.sort((a,b) => a.question_num - b.question_num);
+                canvasImg.onload = () => redrawCanvas(); canvasImg.src = data.preview_image;
+                renderTable();
+            }
+        } catch (e) { alert("解析失败"); }
+    }
+
+    async function saveTemplate() {
+        syncTable();
+        templateData.rois = rois; 
+        try {
+            const res = await fetch(`${API}/save_template`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(templateData) });
+            if ((await res.json()).status === 'success') { alert("保存成功！"); window.location.hash = '#batch'; }
+        } catch (e) { alert("保存失败"); }
+    }
+
+    function exportTemplate() {
+        syncTable();
+        templateData.rois = rois; 
+        let dlAnchorElem = document.createElement('a');
+        dlAnchorElem.setAttribute("href", "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(templateData, null, 2)));
+        dlAnchorElem.setAttribute("download", "OMR_Template.json");
+        dlAnchorElem.click();
+    }
+    
+    function importTemplateFile(e) {
+        let file = e.target.files[0];
+        if(!file) return;
+        let reader = new FileReader();
+        reader.onload = function(evt) {
+            try {
+                templateData = JSON.parse(evt.target.result);
+                if (templateData.rois) {
+                    rois = templateData.rois;
+                    updateUndo();
+                    if(rois.length > 0) document.getElementById('extractBubblesBtn').disabled = false;
+                }
+                renderTable();
+                redrawCanvas();
+                alert("配置已导入！\n如果画布空白，请点击“导入空白卡”，并在提示时选择“取消”以保留这些红蓝框线。");
+            } catch(e) { alert("JSON解析错误"); }
+        };
+        reader.readAsText(file);
+        e.target.value = ''; 
+    }
+
+    let batchFiles = [];
+    let processedResults = []; 
+    let currentPreviewIndex = -1;
+    
+    let imgScale = 1;
+    let imgTx = 0;
+    let imgTy = 0;
+    let isDraggingImg = false;
+    let dragStartX, dragStartY;
+
+    const previewContainer = document.getElementById('previewContainer');
+    const mainImg = document.getElementById('detailPreviewImg');
+
+    previewContainer.addEventListener('wheel', (e) => {
+        if(!mainImg.src) return;
+        e.preventDefault();
+        const zoomSensitivity = 0.0015;
+        const delta = -e.deltaY * zoomSensitivity;
+        let newScale = imgScale * Math.exp(delta);
+        newScale = Math.max(0.2, Math.min(newScale, 15)); 
+
+        const rect = previewContainer.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        imgTx = mouseX - (mouseX - imgTx) * (newScale / imgScale);
+        imgTy = mouseY - (mouseY - imgTy) * (newScale / imgScale);
+        imgScale = newScale;
+        applyTransform();
+    });
+
+    previewContainer.addEventListener('mousedown', (e) => {
+        if(!mainImg.src) return;
+        isDraggingImg = true;
+        dragStartX = e.clientX - imgTx;
+        dragStartY = e.clientY - imgTy;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isDraggingImg) return;
+        imgTx = e.clientX - dragStartX;
+        imgTy = e.clientY - dragStartY;
+        applyTransform();
+    });
+
+    window.addEventListener('mouseup', () => { isDraggingImg = false; });
+    previewContainer.addEventListener('mouseleave', () => { isDraggingImg = false; });
+
+    function applyTransform() {
+        mainImg.style.transform = `translate(${imgTx}px, ${imgTy}px) scale(${imgScale})`;
+    }
+
+    async function fetchTemplateData() {
+        try {
+            const res = await fetch(`${API}/get_template`);
+            const data = await res.json();
+            if(data.status === 'success') { 
+                templateData = data.data; 
+                if (templateData.rois) {
+                    rois = templateData.rois;
+                    updateUndo();
+                    if (rois.length > 0) document.getElementById('extractBubblesBtn').disabled = false;
+                }
+                if (data.image_base64) {
+                    canvasImg.onload = () => {
+                        canvas.width = data.width;
+                        canvas.height = data.height;
+                        redrawCanvas();
+                    };
+                    canvasImg.src = data.image_base64;
+                }
+                renderTable();
+            }
+        } catch(e) {}
+    }
+
+    document.getElementById('batchUpload').addEventListener('change', e => {
+        batchFiles = Array.from(e.target.files);
+        if(batchFiles.length > 0) {
+            document.getElementById('batchStatus').innerText = `已准备 ${batchFiles.length} 份试卷。`;
+            document.getElementById('startBatchBtn').disabled = false;
+        }
+    });
+
+    async function startBatch() {
+        if(batchFiles.length === 0) return;
+        document.getElementById('startBatchBtn').disabled = true;
+        document.getElementById('progWrapper').style.display = 'block';
+        processedResults = [];
+        currentPreviewIndex = -1;
+        
+        imgScale = 1; imgTx = 0; imgTy = 0;
+
+        for(let i=0; i<batchFiles.length; i++) {
+            let formData = new FormData(); formData.append('file', batchFiles[i]);
+            try {
+                let res = await fetch(`${API}/analyze_single`, { method: 'POST', body: formData });
+                let data = await res.json();
+                if(data.status === 'success') processedResults.push(data.result);
+                else processedResults.push({filename: batchFiles[i].name, status: 'error', message: data.message});
+            } catch(err) {
+                processedResults.push({filename: batchFiles[i].name, status: 'error', message: '网络异常'});
+            }
+            document.getElementById('progFill').style.width = `${((i+1)/batchFiles.length)*100}%`;
+            document.getElementById('batchStatus').innerText = `处理中: ${i+1} / ${batchFiles.length}`;
+            renderResultList(); 
+            if(i === 0) selectCard(0);
+        }
+        document.getElementById('batchStatus').innerText = `完成，共批改 ${batchFiles.length} 份`;
+        document.getElementById('startBatchBtn').disabled = false;
+        setTimeout(() => document.getElementById('progWrapper').style.display = 'none', 1000);
+    }
+
+    function renderResultList() {
+        const filter = document.getElementById('filterSelect').value;
+        const container = document.getElementById('batchResults');
+        container.innerHTML = '';
+        
+        processedResults.forEach((r, idx) => {
+            if(filter === 'flagged' && !r.flagged) return;
+
+            let cls = `result-card ${r.flagged ? 'flagged' : ''} ${idx === currentPreviewIndex ? 'active' : ''}`;
+            if (r.status === 'success') {
+                let w = r.details.filter(d => !d.is_correct).map(d => `<span style="color:var(--danger)">Q${d.question}</span>`).join(' ');
+                container.innerHTML += `
+                    <div class="${cls}" id="card-${idx}" onclick="selectCard(${idx})">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-weight:bold; font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:180px;">
+                                ${r.flagged ? '<i class="fas fa-flag" style="color:var(--danger)"></i> ' : ''}${r.filename}
+                            </span> 
+                            <span style="color:var(--danger);font-weight:bold">${r.score}</span>
+                        </div>
+                        <div style="font-size: 11px; color:#666; margin-top:4px;">错题: ${w || '全对'}</div>
+                    </div>`;
+            } else {
+                container.innerHTML += `
+                    <div class="${cls}" onclick="selectCard(${idx})">
+                        <div style="font-weight:bold; font-size:14px;">${r.filename} <span style="color:var(--danger)">FAIL</span></div>
+                    </div>`;
+            }
+        });
+    }
+
+    function selectCard(idx) {
+        if(idx < 0 || idx >= processedResults.length) return;
+        currentPreviewIndex = idx;
+        renderResultList(); 
+
+        const r = processedResults[idx];
+        document.getElementById('previewTip').style.display = 'none';
+        
+        const infoBox = document.getElementById('studentInfoBox');
+        const infoImg = document.getElementById('infoCropImg');
+        const scoreTxt = document.getElementById('previewScore');
+        const flagBtn = document.getElementById('flagBtn');
+        
+        if(r.status === 'success') {
+            mainImg.src = r.image_base64; 
+            mainImg.style.display = 'block';
+            
+            applyTransform(); 
+
+            scoreTxt.innerText = `${r.score}`;
+            if(r.info_base64) { infoImg.src = r.info_base64; infoBox.style.display = 'flex'; }
+            else { infoBox.style.display = 'none'; }
+            
+            flagBtn.style.display = 'block';
+            flagBtn.innerHTML = r.flagged ? '<i class="fas fa-flag-checkered"></i> 取消标记' : '<i class="fas fa-flag"></i> 标记撤回';
+            flagBtn.className = r.flagged ? 'btn outline' : 'btn warning';
+        } else {
+            mainImg.style.display = 'none'; infoBox.style.display = 'none'; flagBtn.style.display = 'none';
+        }
+        
+        const card = document.getElementById(`card-${idx}`);
+        if(card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    document.addEventListener('keydown', e => {
+        if(document.getElementById('view-batch').classList.contains('active')) {
+            if(e.key === 'ArrowRight' || e.key === 'ArrowDown') { selectCard(currentPreviewIndex + 1); e.preventDefault(); }
+            if(e.key === 'ArrowLeft' || e.key === 'ArrowUp') { selectCard(currentPreviewIndex - 1); e.preventDefault(); }
+        }
+    });
+
+    async function toggleFlag() {
+        if(currentPreviewIndex === -1) return;
+        const r = processedResults[currentPreviewIndex];
+        try {
+            const res = await fetch(`${API}/toggle_flag`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({filename: r.filename}) });
+            const data = await res.json();
+            if(data.status === 'success') {
+                r.flagged = data.flagged;
+                selectCard(currentPreviewIndex); 
+            }
+        } catch(e) {}
+    }
+
+    // 新增：CSV 导出功能，支持用 Excel 打开
+    function exportScores() {
+        if (processedResults.length === 0) {
+            alert("目前没有可导出的成绩，请先导入试卷进行批改。");
+            return;
+        }
+        
+        // 加入 BOM 字符 \uFEFF，防止 Excel 打开 CSV 时中文乱码
+        let csvContent = "\uFEFF试卷文件名称,总成绩,错题明细,状态标记\n";
+        
+        processedResults.forEach(r => {
+            if (r.status === 'success') {
+                // 筛选出错题，并拼接成 Q1(B); Q3(D) 的格式
+                let wrongDetails = r.details.filter(d => !d.is_correct).map(d => `Q${d.question}(${d.selected})`).join('; ');
+                let status = r.flagged ? "已标记(需复查)" : "正常";
+                csvContent += `${r.filename},${r.score},${wrongDetails || '全对'},${status}\n`;
+            } else {
+                csvContent += `${r.filename},0,解析失败,${r.message}\n`;
+            }
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        // 使用时间戳命名，方便归档
+        link.setAttribute("download", `学生成绩汇总单_${new Date().getTime()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+
+</body>
+</html>
